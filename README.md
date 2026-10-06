@@ -52,6 +52,17 @@ Rules every new migration follows:
   from the environment. The runner uses the instance administrator's credentials (ADR-012).
 - `products_app` (the login role) is created by `synkro-infra-postgres`'s bootstrap, not here.
   `V003` grants `products_writer` to it, so **it must exist before the first migrate**.
+- **Name every constraint**: `ck_<table>_<rule>`, `fk_<table>_<target>`, `uq_<table>_<rule>`.
+  The CI checks assert on these names.
+- **A status with a conditional timestamp is two implications, never an OR of the valid cases**
+  (`stock_reservation.released_at`, `stock_alert.resolved_at`):
+  `(status <> 'OPEN' OR resolved_at IS NULL) AND (status <> 'RESOLVED' OR resolved_at IS NOT NULL)`.
+  `(OPEN AND NULL) OR (RESOLVED AND NOT NULL)` accepts the same rows but is also false for any
+  invalid status, so a bad status gets reported by the wrong constraint.
+- **A partial unique index that encodes a domain rule** (one active category per name, one OPEN
+  `stock_alert` per product) lives in the table's own migration, not in `10_indexes/`. CI tests it
+  both ways: the duplicate is rejected, and the row is accepted again once the first leaves the
+  predicate (category deactivated, alert resolved).
 
 ## Running the migrations locally
 
