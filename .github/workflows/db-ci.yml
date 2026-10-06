@@ -182,6 +182,9 @@ jobs:
           expect_violation 23514 ck_stock_adjustment_reason_not_empty \
             "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000003', '$PROD', 5, '', '$USER_ID');"
 
+          expect_violation 23514 ck_stock_adjustment_reason_not_empty \
+            "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000005', '$PROD', 5, '   ', '$USER_ID');"
+
           expect_violation 23503 fk_stock_adjustment_product \
             "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000004', '$NO_SUCH_ID', 5, 'Restock', '$USER_ID');"
 
@@ -192,6 +195,16 @@ jobs:
 
           expect_violation 23514 ck_stock_reservation_status \
             "INSERT INTO products_schema.stock_reservation (reservation_id, status) VALUES ('b0000000-0000-0000-0000-000000000002', 'BOGUS');"
+
+          # released_at is set exactly when RELEASED
+          $PSQL -c "INSERT INTO products_schema.stock_reservation (reservation_id, status, released_at) VALUES ('b0000000-0000-0000-0000-000000000003', 'RELEASED', now());"
+          echo "PASS: valid released stock_reservation accepted (control)"
+
+          expect_violation 23514 ck_stock_reservation_released_at_consistency \
+            "INSERT INTO products_schema.stock_reservation (reservation_id, status, released_at) VALUES ('b0000000-0000-0000-0000-000000000004', 'RESERVED', now());"
+
+          expect_violation 23514 ck_stock_reservation_released_at_consistency \
+            "INSERT INTO products_schema.stock_reservation (reservation_id, status) VALUES ('b0000000-0000-0000-0000-000000000005', 'RELEASED');"
 
           # stock_reservation_line control
           $PSQL -c "INSERT INTO products_schema.stock_reservation_line (line_id, reservation_id, product_id, quantity, unit_price_cents) VALUES ('c0000000-0000-0000-0000-000000000001', '$RES', '$PROD', 2, 1000);"
