@@ -94,6 +94,27 @@ jobs:
             exit 1
           fi
 
+      - name: Privilege check — products_app's table privileges
+        # Table privileges come only from V003's ALTER DEFAULT PRIVILEGES,
+        # which covers tables created by the role that ran V003. Exactly
+        # SELECT, INSERT, UPDATE on every table; never DELETE.
+        run: |
+          result=$(psql -h localhost -U postgres -d postgres -tAc "
+            SELECT string_agg(format('%s %s=%s', t.tablename, p.priv,
+                                     has_table_privilege('products_app', format('%I.%I', t.schemaname, t.tablename), p.priv)), ', '
+                              ORDER BY t.tablename, p.priv)
+            FROM pg_tables t
+            CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
+            WHERE t.schemaname = 'products_schema'
+              AND has_table_privilege('products_app', format('%I.%I', t.schemaname, t.tablename), p.priv) <> (p.priv <> 'DELETE');")
+          tables=$(psql -h localhost -U postgres -d postgres -tAc \
+            "SELECT count(*) FROM pg_tables WHERE schemaname = 'products_schema';")
+          echo "Tables in products_schema: $tables"
+          if [ "$tables" -eq 0 ] || [ -n "$result" ]; then
+            echo "products_app has the wrong table privileges: ${result:-no tables to check}"
+            exit 1
+          fi
+
       - name: Negative-path constraint checks
         # A rejected INSERT proves nothing by itself: a later NOT NULL column
         # would make every bad-row INSERT here fail for that reason instead.
