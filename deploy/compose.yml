@@ -9,7 +9,8 @@ services:
       FLYWAY_USER: ${FLYWAY_USER:?set FLYWAY_USER - see .env.example}
       FLYWAY_PASSWORD: ${FLYWAY_PASSWORD:?set FLYWAY_PASSWORD - see .env.example}
     volumes: ["../:/workspace:ro"]
-    command: ["-workingDirectory=/workspace", "-configFiles=flyway.toml", "migrate"]
+    entrypoint: ["flyway", "-workingDirectory=/workspace", "-configFiles=flyway.toml"]
+    command: ["migrate"]
     networks: [platform]
 
 networks:
