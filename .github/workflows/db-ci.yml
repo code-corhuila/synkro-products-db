@@ -146,11 +146,11 @@ jobs:
           echo "PASS: valid product accepted (control)"
 
           # price_cents <= 0 must be rejected
-          expect_violation 23514 product_price_cents_check \
+          expect_violation 23514 ck_product_price_positive \
             "INSERT INTO products_schema.product (product_id, name, price_cents, category_id) VALUES ('22222222-2222-2222-2222-222222222222', 'Bad Product', 0, '$CAT');"
 
           # negative stock must be rejected
-          expect_violation 23514 product_stock_check \
+          expect_violation 23514 ck_product_stock_non_negative \
             "INSERT INTO products_schema.product (product_id, name, price_cents, stock, category_id) VALUES ('33333333-3333-3333-3333-333333333333', 'Bad Stock', 1000, -1, '$CAT');"
 
           # duplicate ACTIVE category name must be rejected
