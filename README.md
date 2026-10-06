@@ -106,10 +106,19 @@ It proves, in order:
 1. **Migrate from empty** applies every `V*.sql` in the repository (the applied count is checked:
    Flyway exits 0 with zero migrations when it cannot find its config).
 2. **Migrate again** is a no-op (`No migration necessary`).
-3. **Privileges:** `products_app` has `USAGE` on `products_schema`.
-4. **Rollbacks** apply cleanly, highest version to lowest, and leave neither `products_schema`
+3. **Privileges:** `products_app` has `USAGE` on `products_schema`, and exactly `SELECT`, `INSERT`,
+   `UPDATE` (never `DELETE`) on every table in it. Those table grants come only from `V003`'s
+   `ALTER DEFAULT PRIVILEGES`, which covers tables created by the role that ran `V003`: create
+   every table through Flyway with the same administrator credentials.
+4. **Constraints reject bad rows for the right reason:** non-positive price, negative stock, a
+   duplicate active category name and an unknown `category_id` must each fail with the expected
+   SQLSTATE *and* constraint name, while a valid product is accepted. A bare non-zero exit is not
+   enough: once a column is added, every bad-row INSERT could fail on that column instead. When
+   a migration adds a required column to `product` or `category`, update these test INSERTs —
+   the valid-product control fails until you do.
+5. **Rollbacks** apply cleanly, highest version to lowest, and leave neither `products_schema`
    nor `products_writer` behind.
-5. **Rebuild:** after dropping `flyway_schema_history`, migrating from scratch succeeds again.
+6. **Rebuild:** after dropping `flyway_schema_history`, migrating from scratch succeeds again.
 
 To reproduce it by hand against the stand-in database above (bash, repository root):
 
@@ -125,8 +134,8 @@ find 05_rollbacks -name 'U*.sql' -printf '%f\t%p\n' | sort -r | cut -f2 | while 
 docker exec synkro-db psql -U postgres -d synkro -c "DROP TABLE IF EXISTS flyway_schema_history;"
 ```
 
-Then migrate again (step 3 above). The first command must print `t`; the loop must apply `U003`,
-`U002`, `U001` in that order without errors.
+Then migrate again (step 3 above). The first command must print `t`; the loop must apply every `U` script from the highest
+version down to `U001` (today `U007` … `U001`) without errors.
 
 To run the whole workflow locally, unchanged, use [`act`](https://github.com/nektos/act):
 
