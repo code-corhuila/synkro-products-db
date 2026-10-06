@@ -1,0 +1,15 @@
+services:
+  products-db-migrate:
+    image: flyway/flyway:11.20.3-alpine
+    profiles: [tooling]
+    environment:
+      FLYWAY_URL: ${FLYWAY_URL}
+      FLYWAY_USER: ${FLYWAY_USER}
+      FLYWAY_PASSWORD: ${FLYWAY_PASSWORD}
+    volumes: ["../:/workspace:ro"]
+    command: ["-workingDirectory=/workspace", "-configFiles=flyway.toml", "migrate"]
+    networks: [platform]
+
+networks:
+  platform:
+    external: true
