@@ -59,6 +59,12 @@ Rules every new migration follows:
   `(status <> 'OPEN' OR resolved_at IS NULL) AND (status <> 'RESOLVED' OR resolved_at IS NOT NULL)`.
   `(OPEN AND NULL) OR (RESOLVED AND NOT NULL)` accepts the same rows but is also false for any
   invalid status, so a bad status gets reported by the wrong constraint.
+- **A column added later to an existing table is nullable when old rows cannot be backfilled**
+  (`stock_adjustment.stock_after`, `V017`, part of the HU-PRO-09 scope: the idempotent replay of
+  `POST /products/{id}/stock-adjustments` must return the stock right after that adjustment).
+  Rows predating `V017` stay `NULL`; new rows always carry it. Its CHECK is
+  `ck_stock_adjustment_stock_after_non_negative` (`stock_after IS NULL OR stock_after >= 0`), and
+  CI asserts it with a valid control (`0`) and a rejected `-1`.
 - **A partial unique index that encodes a domain rule** (one active category per name, one OPEN
   `stock_alert` per product) lives in the table's own migration, not in `10_indexes/`. CI tests it
   both ways: the duplicate is rejected, and the row is accepted again once the first leaves the
@@ -147,7 +153,7 @@ docker exec synkro-db psql -U postgres -d synkro -c "DROP TABLE IF EXISTS flyway
 ```
 
 Then migrate again (step 3 above). The first command must print `t`; the loop must apply every `U` script from the highest
-version down to `U001` (today `U007` … `U001`) without errors.
+version down to `U001` (today `U017` … `U001`) without errors.
 
 To run the whole workflow locally, unchanged, use [`act`](https://github.com/nektos/act):
 
