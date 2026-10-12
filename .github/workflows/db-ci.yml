@@ -2,13 +2,17 @@ name: db-ci
 
 on:
   push:
-    branches: [develop, qa, main]
+    branches: [develop, qa, main, fix/root-composition-integration]
   pull_request:
     branches: [develop, qa, main]
+
+permissions:
+  contents: read
 
 jobs:
   migration-rebuild:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-alpine
@@ -27,6 +31,8 @@ jobs:
       PGPASSWORD: ci_admin_pw
     steps:
       - uses: actions/checkout@v4
+      - name: Verify schema-isolated history contract
+        run: python3 tests/test_history_contract.py
 
       - name: Install psql
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -71,7 +77,7 @@ jobs:
           flyway -configFiles=flyway.toml migrate
           expected=$(find 01_ddl 02_dml 03_dcl 04_tcl -name 'V*.sql' | wc -l)
           applied=$(psql -h localhost -U postgres -d postgres -tAc \
-            "SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL;")
+            "SELECT count(*) FROM products_schema.flyway_schema_history WHERE success AND version IS NOT NULL;")
           echo "V migrations in repository: $expected, applied: $applied"
           if [ "$expected" -eq 0 ] || [ "$applied" != "$expected" ]; then
             echo "Applied migrations do not match the repository"
@@ -97,7 +103,7 @@ jobs:
       - name: Privilege check — products_app's table privileges
         # Table privileges come only from V003's ALTER DEFAULT PRIVILEGES,
         # which covers tables created by the role that ran V003. Exactly
-        # SELECT, INSERT, UPDATE on every table; never DELETE.
+        # SELECT, INSERT, UPDATE on every business table; never DELETE. The migration ledger is administrator-only.
         run: |
           result=$(psql -h localhost -U postgres -d postgres -tAc "
             SELECT string_agg(format('%s %s=%s', t.tablename, p.priv,
@@ -105,12 +111,12 @@ jobs:
                               ORDER BY t.tablename, p.priv)
             FROM pg_tables t
             CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
-            WHERE t.schemaname = 'products_schema'
+            WHERE t.schemaname = 'products_schema' AND t.tablename <> 'flyway_schema_history'
               AND has_table_privilege('products_app', format('%I.%I', t.schemaname, t.tablename), p.priv) <> (p.priv <> 'DELETE');")
           tables=$(psql -h localhost -U postgres -d postgres -tAc \
-            "SELECT count(*) FROM pg_tables WHERE schemaname = 'products_schema';")
+            "SELECT count(*) FROM pg_tables WHERE schemaname = 'products_schema' AND tablename <> 'flyway_schema_history';")
           echo "Tables in products_schema ($tables): $(psql -h localhost -U postgres -d postgres -tAc \
-            "SELECT string_agg(tablename, ', ' ORDER BY tablename) FROM pg_tables WHERE schemaname = 'products_schema';")"
+            "SELECT string_agg(tablename, ', ' ORDER BY tablename) FROM pg_tables WHERE schemaname = 'products_schema' AND tablename <> 'flyway_schema_history';")"
           if [ "$tables" -eq 0 ] || [ -n "$result" ]; then
             echo "products_app has the wrong table privileges: ${result:-no tables to check}"
             exit 1
@@ -292,6 +298,7 @@ jobs:
       - name: Apply rollbacks, highest version to lowest
         run: |
           set -euo pipefail
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "DROP TABLE IF EXISTS products_schema.flyway_schema_history;"
           find 05_rollbacks -name 'U*.sql' -printf '%f\t%p\n' \
             | sort -r \
             | cut -f2 \
@@ -315,8 +322,6 @@ jobs:
             exit 1
           fi
 
-      - name: Drop flyway_schema_history and migrate again
+      - name: Migrate again after disposable reconstruction
         run: |
-          psql -h localhost -U postgres -d postgres -c \
-            "DROP TABLE IF EXISTS flyway_schema_history;"
           flyway -configFiles=flyway.toml migrate
