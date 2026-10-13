@@ -239,7 +239,42 @@ jobs:
           expect_violation 23514 ck_idempotency_key_resource_type \
             "INSERT INTO products_schema.idempotency_key (idempotency_key, resource_type, resource_id) VALUES ('key-bad-type', 'ORDER', '$PROD');"
 
+          # stock_alert: each bad row breaks exactly one rule. The CHECK cases
+          # run before any OPEN alert exists for $PROD, so the partial unique
+          # index cannot be what rejects them.
+          $PSQL -c "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening, resolved_at) VALUES ('d0000000-0000-0000-0000-000000000001', '$PROD', 'RESOLVED', 3, now());"
+          echo "PASS: valid RESOLVED stock_alert accepted (control)"
+
+          expect_violation 23514 ck_stock_alert_stock_at_opening_non_negative \
+            "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening, resolved_at) VALUES ('d0000000-0000-0000-0000-000000000002', '$PROD', 'RESOLVED', -1, now());"
+
+          # an invalid status must be reported by the status CHECK, not by the
+          # resolved_at consistency CHECK (see V010 for why that matters)
+          expect_violation 23514 ck_stock_alert_status \
+            "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening) VALUES ('d0000000-0000-0000-0000-000000000003', '$PROD', 'BOGUS', 3);"
+
+          expect_violation 23514 ck_stock_alert_resolved_at_consistency \
+            "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening, resolved_at) VALUES ('d0000000-0000-0000-0000-000000000004', '$PROD', 'OPEN', 3, now());"
+
+          expect_violation 23514 ck_stock_alert_resolved_at_consistency \
+            "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening) VALUES ('d0000000-0000-0000-0000-000000000005', '$PROD', 'RESOLVED', 3);"
+
+          expect_violation 23503 fk_stock_alert_product \
+            "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening) VALUES ('d0000000-0000-0000-0000-000000000006', '$NO_SUCH_ID', 'OPEN', 3);"
+
+          $PSQL -c "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening) VALUES ('d0000000-0000-0000-0000-000000000010', '$PROD', 'OPEN', 3);"
+          echo "PASS: valid OPEN stock_alert accepted (control)"
+
+          expect_violation 23505 uq_stock_alert_product_open \
+            "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening) VALUES ('d0000000-0000-0000-0000-000000000011', '$PROD', 'OPEN', 3);"
+
+          # resolving the open alert frees the product for a new OPEN one
+          $PSQL -c "UPDATE products_schema.stock_alert SET status = 'RESOLVED', resolved_at = now() WHERE alert_id = 'd0000000-0000-0000-0000-000000000010';"
+          $PSQL -c "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening) VALUES ('d0000000-0000-0000-0000-000000000012', '$PROD', 'OPEN', 3);"
+          echo "PASS: new OPEN stock_alert accepted after the previous one was resolved"
+
           # clean up before the rollback step runs, children before parents
+          $PSQL -c "DELETE FROM products_schema.stock_alert;"
           $PSQL -c "DELETE FROM products_schema.stock_reservation_line;"
           $PSQL -c "DELETE FROM products_schema.stock_reservation;"
           $PSQL -c "DELETE FROM products_schema.stock_adjustment;"
