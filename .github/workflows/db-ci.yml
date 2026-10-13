@@ -109,7 +109,8 @@ jobs:
               AND has_table_privilege('products_app', format('%I.%I', t.schemaname, t.tablename), p.priv) <> (p.priv <> 'DELETE');")
           tables=$(psql -h localhost -U postgres -d postgres -tAc \
             "SELECT count(*) FROM pg_tables WHERE schemaname = 'products_schema';")
-          echo "Tables in products_schema: $tables"
+          echo "Tables in products_schema ($tables): $(psql -h localhost -U postgres -d postgres -tAc \
+            "SELECT string_agg(tablename, ', ' ORDER BY tablename) FROM pg_tables WHERE schemaname = 'products_schema';")"
           if [ "$tables" -eq 0 ] || [ -n "$result" ]; then
             echo "products_app has the wrong table privileges: ${result:-no tables to check}"
             exit 1
@@ -166,7 +167,83 @@ jobs:
           expect_violation 23503 fk_product_category \
             "INSERT INTO products_schema.product (product_id, name, price_cents, category_id) VALUES ('55555555-5555-5555-5555-555555555555', 'Orphan Product', 1000, '99999999-9999-9999-9999-999999999999');"
 
-          # clean up before the rollback step runs
+          PROD=66666666-6666-6666-6666-666666666666
+          NO_SUCH_ID=99999999-9999-9999-9999-999999999999
+          # adjusted_by is a user in Auth: cross-domain, no FK by design
+          USER_ID=77777777-7777-7777-7777-777777777777
+
+          # stock_adjustment control
+          $PSQL -c "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000001', '$PROD', 5, 'Restock', '$USER_ID');"
+          echo "PASS: valid stock_adjustment accepted (control)"
+
+          expect_violation 23514 ck_stock_adjustment_delta_nonzero \
+            "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000002', '$PROD', 0, 'Restock', '$USER_ID');"
+
+          expect_violation 23514 ck_stock_adjustment_reason_not_empty \
+            "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000003', '$PROD', 5, '', '$USER_ID');"
+
+          expect_violation 23514 ck_stock_adjustment_reason_not_empty \
+            "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000005', '$PROD', 5, '   ', '$USER_ID');"
+
+          expect_violation 23503 fk_stock_adjustment_product \
+            "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000004', '$NO_SUCH_ID', 5, 'Restock', '$USER_ID');"
+
+          # stock_reservation control
+          RES=b0000000-0000-0000-0000-000000000001
+          $PSQL -c "INSERT INTO products_schema.stock_reservation (reservation_id, status) VALUES ('$RES', 'RESERVED');"
+          echo "PASS: valid stock_reservation accepted (control)"
+
+          expect_violation 23514 ck_stock_reservation_status \
+            "INSERT INTO products_schema.stock_reservation (reservation_id, status) VALUES ('b0000000-0000-0000-0000-000000000002', 'BOGUS');"
+
+          # released_at is set exactly when RELEASED
+          $PSQL -c "INSERT INTO products_schema.stock_reservation (reservation_id, status, released_at) VALUES ('b0000000-0000-0000-0000-000000000003', 'RELEASED', now());"
+          echo "PASS: valid released stock_reservation accepted (control)"
+
+          expect_violation 23514 ck_stock_reservation_released_at_consistency \
+            "INSERT INTO products_schema.stock_reservation (reservation_id, status, released_at) VALUES ('b0000000-0000-0000-0000-000000000004', 'RESERVED', now());"
+
+          expect_violation 23514 ck_stock_reservation_released_at_consistency \
+            "INSERT INTO products_schema.stock_reservation (reservation_id, status) VALUES ('b0000000-0000-0000-0000-000000000005', 'RELEASED');"
+
+          # stock_reservation_line control
+          $PSQL -c "INSERT INTO products_schema.stock_reservation_line (line_id, reservation_id, product_id, quantity, unit_price_cents) VALUES ('c0000000-0000-0000-0000-000000000001', '$RES', '$PROD', 2, 1000);"
+          echo "PASS: valid stock_reservation_line accepted (control)"
+
+          expect_violation 23514 ck_stock_reservation_line_quantity_positive \
+            "INSERT INTO products_schema.stock_reservation_line (line_id, reservation_id, product_id, quantity, unit_price_cents) VALUES ('c0000000-0000-0000-0000-000000000002', '$RES', '$PROD', 0, 1000);"
+
+          expect_violation 23514 ck_stock_reservation_line_price_positive \
+            "INSERT INTO products_schema.stock_reservation_line (line_id, reservation_id, product_id, quantity, unit_price_cents) VALUES ('c0000000-0000-0000-0000-000000000003', '$RES', '$PROD', 2, 0);"
+
+          expect_violation 23503 fk_stock_reservation_line_reservation \
+            "INSERT INTO products_schema.stock_reservation_line (line_id, reservation_id, product_id, quantity, unit_price_cents) VALUES ('c0000000-0000-0000-0000-000000000004', '$NO_SUCH_ID', '$PROD', 2, 1000);"
+
+          expect_violation 23503 fk_stock_reservation_line_product \
+            "INSERT INTO products_schema.stock_reservation_line (line_id, reservation_id, product_id, quantity, unit_price_cents) VALUES ('c0000000-0000-0000-0000-000000000005', '$RES', '$NO_SUCH_ID', 2, 1000);"
+
+          # idempotency_key controls sit exactly on the length bounds (8 and
+          # 128), so an off-by-one in the CHECK fails a control
+          K8=$(printf 'k%.0s' {1..8})
+          K128=$(printf 'k%.0s' {1..128})
+          $PSQL -c "INSERT INTO products_schema.idempotency_key (idempotency_key, resource_type, resource_id) VALUES ('$K8', 'PRODUCT', '$PROD');"
+          $PSQL -c "INSERT INTO products_schema.idempotency_key (idempotency_key, resource_type, resource_id) VALUES ('$K128', 'STOCK_RESERVATION', '$RES');"
+          echo "PASS: 8- and 128-character idempotency keys accepted (controls)"
+
+          expect_violation 23514 ck_idempotency_key_length \
+            "INSERT INTO products_schema.idempotency_key (idempotency_key, resource_type, resource_id) VALUES ('${K8:1}', 'PRODUCT', '$PROD');"
+
+          expect_violation 23514 ck_idempotency_key_length \
+            "INSERT INTO products_schema.idempotency_key (idempotency_key, resource_type, resource_id) VALUES ('${K128}k', 'PRODUCT', '$PROD');"
+
+          expect_violation 23514 ck_idempotency_key_resource_type \
+            "INSERT INTO products_schema.idempotency_key (idempotency_key, resource_type, resource_id) VALUES ('key-bad-type', 'ORDER', '$PROD');"
+
+          # clean up before the rollback step runs, children before parents
+          $PSQL -c "DELETE FROM products_schema.stock_reservation_line;"
+          $PSQL -c "DELETE FROM products_schema.stock_reservation;"
+          $PSQL -c "DELETE FROM products_schema.stock_adjustment;"
+          $PSQL -c "DELETE FROM products_schema.idempotency_key;"
           $PSQL -c "DELETE FROM products_schema.product;"
           $PSQL -c "DELETE FROM products_schema.category;"
 

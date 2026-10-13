@@ -110,12 +110,13 @@ It proves, in order:
    `UPDATE` (never `DELETE`) on every table in it. Those table grants come only from `V003`'s
    `ALTER DEFAULT PRIVILEGES`, which covers tables created by the role that ran `V003`: create
    every table through Flyway with the same administrator credentials.
-4. **Constraints reject bad rows for the right reason:** non-positive price, negative stock, a
-   duplicate active category name and an unknown `category_id` must each fail with the expected
-   SQLSTATE *and* constraint name, while a valid product is accepted. A bare non-zero exit is not
-   enough: once a column is added, every bad-row INSERT could fail on that column instead. When
-   a migration adds a required column to `product` or `category`, update these test INSERTs —
-   the valid-product control fails until you do.
+4. **Constraints reject bad rows for the right reason:** every named CHECK, unique index and
+   foreign key has an assertion (`expect_violation <SQLSTATE> <constraint> <SQL>`) that must fail
+   with that SQLSTATE *and* that constraint name, and every table has a valid-insert control.
+   A bare non-zero exit is not enough: once a column is added, every bad-row INSERT could fail
+   on that column instead. When a migration adds a constraint, add its assertion to that step;
+   when it adds a required column, update the test INSERTs (the control fails until you do).
+   Clean up child rows before parents at the end of the step.
 5. **Rollbacks** apply cleanly, highest version to lowest, and leave neither `products_schema`
    nor `products_writer` behind.
 6. **Rebuild:** after dropping `flyway_schema_history`, migrating from scratch succeeds again.
