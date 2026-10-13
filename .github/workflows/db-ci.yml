@@ -185,6 +185,13 @@ jobs:
           expect_violation 23514 ck_stock_adjustment_reason_not_empty \
             "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000005', '$PROD', 5, '   ', '$USER_ID');"
 
+          # stock_after is nullable (rows predating V017) but never negative
+          $PSQL -c "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by, stock_after) VALUES ('a0000000-0000-0000-0000-000000000006', '$PROD', 5, 'Restock', '$USER_ID', 0);"
+          echo "PASS: valid stock_adjustment with stock_after = 0 accepted (control)"
+
+          expect_violation 23514 ck_stock_adjustment_stock_after_non_negative \
+            "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by, stock_after) VALUES ('a0000000-0000-0000-0000-000000000007', '$PROD', 5, 'Restock', '$USER_ID', -1);"
+
           expect_violation 23503 fk_stock_adjustment_product \
             "INSERT INTO products_schema.stock_adjustment (adjustment_id, product_id, delta, reason, adjusted_by) VALUES ('a0000000-0000-0000-0000-000000000004', '$NO_SUCH_ID', 5, 'Restock', '$USER_ID');"
 
