@@ -16,8 +16,10 @@ evidence in `docs/evidence/` is kept separate and unchanged.
 | Source (actual integrated develop merge of DB PR23) | `0867b1e98e65ed3c24a170248961ef04d1a44a89` |
 | QA base | `5f15eb094a7214962a4aae7e7d768e9c250440b9` |
 | Candidate (tested) | `ce8fd682e143049977302b1666e8e69bf3dedafa` |
-| Branch | `qa/products-store-integrity` |
+| Branch | `qa-products-store-integrity` |
 
+The QA child uses the repository's existing `qa-...` naming: GitHub rejected
+`qa/...` with a directory/file conflict against the permanent `qa` ref.
 No merge between permanent branches was made. Both feature commits were
 applied with `cherry-pick -x`.
 
