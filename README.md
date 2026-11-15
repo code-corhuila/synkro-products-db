@@ -26,7 +26,7 @@ Full policy: `00-governance/branching-policy.md` in `synkro-docs`.
 
 ## Layout
 
-The tree follows `Norma-Repositorios.md` Anexo A (Flyway). Every family folder exists from day one,
+The team groups Flyway scripts by SQL family. Every family folder exists from day one,
 even when empty (`.gitkeep`), so execution order never has to be renumbered.
 
 | Folder | Content | Run by |
@@ -173,3 +173,38 @@ Take a backup, inventory its domain/version/checksum records and obtain a review
 reconciliation procedure. Do not repair, move or delete that ledger automatically.
 CI drops its disposable schema history **before** the schema-dropping rollback.
 Run `python3 tests/test_history_contract.py` for the configuration regression.
+
+## Approved reservation integrity and reader access (HU-PRO-15)
+
+V018 enforces `UNIQUE (reservation_id, product_id)` on
+`products_schema.stock_reservation_line`, named
+`uq_stock_reservation_line_reservation_product`. Its duplicate preflight aborts
+without changing rows. If it reports duplicates, stop and agree treatment with
+the Products owner/reviewer; no deletion, repair or retry is automatic.
+The backing index builds concurrently; its `.sql.conf` disables the transaction
+for that file. An invalid leftover index also stops the migration for review.
+
+V019/V020 add `products_reader`: NOLOGIN, no password, schema USAGE and SELECT on
+the seven business tables listed in [the design](docs/approved-products-integrity-design.md).
+The Flyway ledger is excluded; no login or role membership is added. Unsafe
+pre-existing attributes, memberships or effective permissions stop adoption.
+Default SELECT privileges apply to future tables created by the **effective
+migration creator**. Other creators need their own reviewed defaults; a future
+administrative table needs explicit exclusion in its creating migration.
+
+Each new migration has a mirrored `U018..U020__*.rollback.sql`. Run reversions
+highest first with `psql -f`, outside a transaction, as the same effective
+creator that applied the grants. Never change an applied V/U script.
+
+CI requires the real-engine suite:
+
+```bash
+PRODUCTS_TEST_DISPOSABLE=1 python3 tests/test_approved_integrity.py
+```
+
+It owns and removes isolated Docker resources. It covers clean installation,
+populated upgrade, unchanged re-execution, duplicate rejection/preflight,
+effective reader permissions and defaults, partial/full rollback and rebuild.
+See [verification](docs/evidence/approved-integrity-verification.json) and
+[full rebuild](docs/evidence/full-ci-rebuild.json). TD-018 remains open for its
+five excluded differences, coordinated by SergioAndres17 without a review date.

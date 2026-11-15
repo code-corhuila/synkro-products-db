@@ -1,0 +1,134 @@
+{
+  "story": "HU-PRO-15 / synkro-docs#317",
+  "scope": "Fresh local verification of the QA proposal; not a persistent QA deployment or an executed main promotion. Historical develop evidence stays separate.",
+  "protected_codeowners_unchanged": true,
+  "billing_disposition": "Owner instructed on 2026-11-14 America/Bogota to ignore the account billing impediment for this delivery. Unstarted Actions jobs are not successful tests; review/integrity/tests/branch policy remain.",
+  "exclusions": "HU-DOCS-98 untouched. TD-012 remains open/excluded. TD-018 retains five open excluded items, coordinated by SergioAndres17 without a review date.",
+  "promotion": {
+    "baseline": "5f15eb094a7214962a4aae7e7d768e9c250440b9",
+    "source": "0867b1e98e65ed3c24a170248961ef04d1a44a89",
+    "branch": "qa-products-store-integrity",
+    "picks": [
+      "c634b1896800bd70e9d07229e2eecf324a30b29b",
+      "2a58ab08493080cc9af22cab72d7f2f981d0c143"
+    ],
+    "trail": [
+      {
+        "source": "c634b1896800bd70e9d07229e2eecf324a30b29b",
+        "target": "5cf5ba91bee64add09a1415e96a7f50b7a66d7fb",
+        "subject": "test(db): specify approved reservation and reader integrity"
+      },
+      {
+        "source": "2a58ab08493080cc9af22cab72d7f2f981d0c143",
+        "target": "ce8fd682e143049977302b1666e8e69bf3dedafa",
+        "subject": "feat(db): enforce reservation uniqueness and read-only access"
+      }
+    ],
+    "candidate": "ce8fd682e143049977302b1666e8e69bf3dedafa",
+    "tree_identical_to_develop": true,
+    "initial_branch_when_tested": "qa/products-store-integrity"
+  },
+  "source_comparison": {
+    "source": "0867b1e98e65ed3c24a170248961ef04d1a44a89",
+    "candidate": "ce8fd682e143049977302b1666e8e69bf3dedafa",
+    "tree_identical_to_source": true,
+    "protected_codeowners_unchanged": true,
+    "historical_sql_unchanged": [
+      "01_ddl/01_schemas/V001__create_schema_products.sql",
+      "01_ddl/03_tables/V004__create_category.sql",
+      "01_ddl/03_tables/V005__create_product.sql",
+      "01_ddl/03_tables/V008__create_idempotency_key.sql",
+      "01_ddl/03_tables/V009__create_stock_adjustment.sql",
+      "01_ddl/03_tables/V010__create_stock_reservation.sql",
+      "01_ddl/03_tables/V011__create_stock_reservation_line.sql",
+      "01_ddl/03_tables/V014__create_stock_alert.sql",
+      "01_ddl/04_alter/V006__add_foreign_keys.sql",
+      "01_ddl/04_alter/V012__add_foreign_keys.sql",
+      "01_ddl/04_alter/V015__add_foreign_keys.sql",
+      "01_ddl/04_alter/V017__add_stock_after_to_stock_adjustment.sql",
+      "01_ddl/10_indexes/V007__create_indexes.sql",
+      "01_ddl/10_indexes/V013__create_indexes.sql",
+      "01_ddl/10_indexes/V016__create_indexes.sql",
+      "03_dcl/00_roles/V002__create_roles.sql",
+      "03_dcl/01_grants/V003__grants.sql",
+      "05_rollbacks/01_ddl/01_schemas/U001__create_schema_products.sql",
+      "05_rollbacks/01_ddl/03_tables/U004__create_category.sql",
+      "05_rollbacks/01_ddl/03_tables/U005__create_product.sql",
+      "05_rollbacks/01_ddl/03_tables/U008__create_idempotency_key.sql",
+      "05_rollbacks/01_ddl/03_tables/U009__create_stock_adjustment.sql",
+      "05_rollbacks/01_ddl/03_tables/U010__create_stock_reservation.sql",
+      "05_rollbacks/01_ddl/03_tables/U011__create_stock_reservation_line.sql",
+      "05_rollbacks/01_ddl/03_tables/U014__create_stock_alert.sql",
+      "05_rollbacks/01_ddl/04_alter/U006__add_foreign_keys.sql",
+      "05_rollbacks/01_ddl/04_alter/U012__add_foreign_keys.sql",
+      "05_rollbacks/01_ddl/04_alter/U015__add_foreign_keys.sql",
+      "05_rollbacks/01_ddl/04_alter/U017__add_stock_after_to_stock_adjustment.sql",
+      "05_rollbacks/01_ddl/10_indexes/U007__create_indexes.sql",
+      "05_rollbacks/01_ddl/10_indexes/U013__create_indexes.sql",
+      "05_rollbacks/01_ddl/10_indexes/U016__create_indexes.sql",
+      "05_rollbacks/03_dcl/00_roles/U002__create_roles.sql",
+      "05_rollbacks/03_dcl/01_grants/U003__grants.sql"
+    ]
+  },
+  "ci": {
+    "label": "qa-db-full-ci",
+    "owner": "1baf85b5d0784e7f82c8d472166b166b",
+    "steps": [
+      {
+        "name": "Verify schema-isolated history contract",
+        "exit": 0,
+        "script_sha256": "a1850281c0ef26be017cc08f7484a2d0608ebfb93cc1f79945297177e0afa94e"
+      },
+      {
+        "name": "Migrate from empty \u2014 every V migration must be applied",
+        "exit": 0,
+        "script_sha256": "55f04184572406a6a19dbef187f80ae5b46e561c19f810fac5910def18449955"
+      },
+      {
+        "name": "Migrate again \u2014 must report no migration necessary",
+        "exit": 0,
+        "script_sha256": "2565bb5dc050d3a0c4da0fa1b631d35070a8fd347e52790b73cf1c86951b6cf0"
+      },
+      {
+        "name": "Privilege check \u2014 products_app can use products_schema",
+        "exit": 0,
+        "script_sha256": "bc1444582e157e3db3764caf4ebdf1034fafc8d804764b02bf165881d940a78c"
+      },
+      {
+        "name": "Privilege check \u2014 products_app's table privileges",
+        "exit": 0,
+        "script_sha256": "4e7a3a62876948433ec960dbae5726cebbcc2a29d3e2334bdf4ac7d62208bc66"
+      },
+      {
+        "name": "Negative-path constraint checks",
+        "exit": 0,
+        "script_sha256": "e09ac13c0fa90ebb49d6a946020228ae89ae46df2dab9330984fd5fcbe9d5d43"
+      },
+      {
+        "name": "Apply rollbacks, highest version to lowest",
+        "exit": 0,
+        "script_sha256": "23c27b49bc2c35e6f1d8386abfa00b4a8a41ae68a024146b334f04c442062cbe"
+      },
+      {
+        "name": "Confirm products_schema and products_writer no longer exist",
+        "exit": 0,
+        "script_sha256": "f7526c7f549e63a2bfebab8183689ea203732bf21880b7ea58e734831bd0d409"
+      },
+      {
+        "name": "Migrate again after disposable reconstruction",
+        "exit": 0,
+        "script_sha256": "8690c1c8049eede6f3a29ec0c94545f4718433f06923110da7b9edf73c1bbe69"
+      },
+      {
+        "name": "Approved Products integrity \u2014 real upgrade, reader, duplicate and rollback cases",
+        "exit": 0,
+        "script_sha256": "55e5ca1eff72acd71ccf079d57d34586b7dbde4afb610f4e41110faff94c4291"
+      }
+    ],
+    "exit_code": 0,
+    "log_sha256": "9b441cef25b96e0931847e4c603f6cb3c53bee0bb6e54d1a5b533b87f1505b97"
+  },
+  "real_engine_tests": 18,
+  "owned_resources_remaining": [],
+  "branch_name_disposition": "GitHub rejected qa/... because permanent ref qa already exists; qa-... follows existing child naming. Branch rename and documentation only, tested commit contents unchanged."
+}
