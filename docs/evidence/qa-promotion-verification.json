@@ -7,7 +7,7 @@
   "promotion": {
     "baseline": "5f15eb094a7214962a4aae7e7d768e9c250440b9",
     "source": "0867b1e98e65ed3c24a170248961ef04d1a44a89",
-    "branch": "qa/products-store-integrity",
+    "branch": "qa-products-store-integrity",
     "picks": [
       "c634b1896800bd70e9d07229e2eecf324a30b29b",
       "2a58ab08493080cc9af22cab72d7f2f981d0c143"
@@ -25,7 +25,8 @@
       }
     ],
     "candidate": "ce8fd682e143049977302b1666e8e69bf3dedafa",
-    "tree_identical_to_develop": true
+    "tree_identical_to_develop": true,
+    "initial_branch_when_tested": "qa/products-store-integrity"
   },
   "source_comparison": {
     "source": "0867b1e98e65ed3c24a170248961ef04d1a44a89",
@@ -128,5 +129,6 @@
     "log_sha256": "9b441cef25b96e0931847e4c603f6cb3c53bee0bb6e54d1a5b533b87f1505b97"
   },
   "real_engine_tests": 18,
-  "owned_resources_remaining": []
+  "owned_resources_remaining": [],
+  "branch_name_disposition": "GitHub rejected qa/... because permanent ref qa already exists; qa-... follows existing child naming. Branch rename and documentation only, tested commit contents unchanged."
 }
