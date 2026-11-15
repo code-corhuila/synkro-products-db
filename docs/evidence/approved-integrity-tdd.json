@@ -1,0 +1,157 @@
+{
+  "label": "db-red-driver-fixed",
+  "started_utc": "2026-11-15T00:57:56.094196+00:00",
+  "finished_utc": "2026-11-15T00:59:03.185433+00:00",
+  "expected": "red",
+  "tests": 17,
+  "failures": [
+    [
+      "test_duplicates_abort_the_migration_before_any_change_and_are_never_cleaned (approved_integrity.DirtyLegacyData.test_duplicates_abort_the_migration_before_any_change_and_are_never_cleaned)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 590, in test_duplicates_abort_the_migration_before_any_change_and_are_never_cleaned\n    self.assertNotEqual(res.rc, 0, \"a database holding duplicate (reservation_id, product_id) pairs must NOT migrate\")\n    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 0 == 0 : a database holding duplicate (reservation_id, product_id) pairs must NOT migrate\n"
+    ],
+    [
+      "test_a_safe_existing_role_is_adopted_idempotently (approved_integrity.ExistingReaderRole.test_a_safe_existing_role_is_adopted_idempotently)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 677, in test_a_safe_existing_role_is_adopted_idempotently\n    self.assertMigratedToLatest(c, c.migrate())\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 379, in assertMigratedToLatest\n    self.assertGreater(expected, BASELINE, f\"no migration after V{BASELINE:03d} exists in the repository\")\n    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 17 not greater than 17 : no migration after V017 exists in the repository\n"
+    ],
+    [
+      "test_an_unsafe_same_name_role_is_refused_and_granted_nothing (approved_integrity.ExistingReaderRole.test_an_unsafe_same_name_role_is_refused_and_granted_nothing)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 665, in test_an_unsafe_same_name_role_is_refused_and_granted_nothing\n    self.assertGreater(len(repo_versions()), BASELINE, f\"no migration after V{BASELINE:03d} exists in the repository\")\n    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 17 not greater than 17 : no migration after V017 exists in the repository\n"
+    ],
+    [
+      "test_raw_v018_fails_with_guidance_on_an_invalid_partial_index (approved_integrity.InvalidPartialIndex.test_raw_v018_fails_with_guidance_on_an_invalid_partial_index)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 630, in test_raw_v018_fails_with_guidance_on_an_invalid_partial_index\n    res = c.run_file(self.new_migration(\"01_ddl/04_alter\"))\n                     ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 374, in new_migration\n    self.fail(f\"expected exactly one new migration (V{BASELINE + 1:03d}+) in {folder}, found {len(found)}\")\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: expected exactly one new migration (V018+) in 01_ddl/04_alter, found 0\n"
+    ],
+    [
+      "test_u018_removes_a_partial_owned_index_without_touching_rows (approved_integrity.InvalidPartialIndex.test_u018_removes_a_partial_owned_index_without_touching_rows)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 641, in test_u018_removes_a_partial_owned_index_without_touching_rows\n    self.assertIsNotNone(rollback, f\"U{BASELINE + 1:03d} does not exist\")\n    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: unexpectedly None : U018 does not exist\n"
+    ],
+    [
+      "test_default_privileges_follow_the_effective_creator_not_postgres (approved_integrity.LatestCleanInstall.test_default_privileges_follow_the_effective_creator_not_postgres)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 519, in test_default_privileges_follow_the_effective_creator_not_postgres\n    self.assertEqual(reader_grants.get(MIGRATOR), [f\"products_reader=r/{MIGRATOR}\"])\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: Lists differ: [] != ['products_reader=r/pro15_migrator']\n\nSecond list contains 1 additional elements.\nFirst extra element 0:\n'products_reader=r/pro15_migrator'\n\n- []\n+ ['products_reader=r/pro15_migrator']\n"
+    ],
+    [
+      "test_duplicate_pair_is_rejected_and_valid_shapes_are_accepted (approved_integrity.LatestCleanInstall.test_duplicate_pair_is_rejected_and_valid_shapes_are_accepted)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 465, in test_duplicate_pair_is_rejected_and_valid_shapes_are_accepted\n    self.expect_violation(self.c, \"23505\", CONSTRAINT, prefix + DUPLICATE_LINE + \"\\nROLLBACK;\")\n    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 386, in expect_violation\n    self.assertNotEqual(res.rc, 0, f\"accepted, expected {constraint} ({sqlstate}) to reject\")\n    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 0 == 0 : accepted, expected uq_stock_reservation_line_reservation_product (23505) to reject\n"
+    ],
+    [
+      "test_only_the_named_unique_constraint_and_its_index_are_added (approved_integrity.LatestCleanInstall.test_only_the_named_unique_constraint_and_its_index_are_added)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 442, in test_only_the_named_unique_constraint_and_its_index_are_added\n    self.assertNamedUniqueConstraint(self.c)\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 408, in assertNamedUniqueConstraint\n    self.assertEqual(cols, \"reservation_id,product_id\", f\"{CONSTRAINT} is not UNIQUE(reservation_id, product_id)\")\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: '' != 'reservation_id,product_id'\n+ reservation_id,product_id\n : uq_stock_reservation_line_reservation_product is not UNIQUE(reservation_id, product_id)\n"
+    ],
+    [
+      "test_reader_cannot_write_any_business_table (approved_integrity.LatestCleanInstall.test_reader_cannot_write_any_business_table)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 492, in test_reader_cannot_write_any_business_table\n    self.assertTrue(self.c.role_exists(\"products_reader\"), \"products_reader does not exist\")\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true : products_reader does not exist\n"
+    ],
+    [
+      "test_reader_has_no_ledger_and_no_other_domain_business_access (approved_integrity.LatestCleanInstall.test_reader_has_no_ledger_and_no_other_domain_business_access)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 504, in test_reader_has_no_ledger_and_no_other_domain_business_access\n    self.assertTrue(self.c.role_exists(\"products_reader\"), \"products_reader does not exist\")\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true : products_reader does not exist\n"
+    ],
+    [
+      "test_reader_role_is_nologin_passwordless_and_member_of_nothing (approved_integrity.LatestCleanInstall.test_reader_role_is_nologin_passwordless_and_member_of_nothing)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 469, in test_reader_role_is_nologin_passwordless_and_member_of_nothing\n    self.assertIn(\"products_reader\", roles, \"products_reader does not exist\")\n    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 'products_reader' not found in {'products_app': ['products_app', False, True, False, False, True, False, False, False], 'products_writer': ['products_writer', False, True, False, False, False, False, False, True]} : products_reader does not exist\n"
+    ],
+    [
+      "test_reader_selects_every_business_table_and_nothing_else_in_the_schema (approved_integrity.LatestCleanInstall.test_reader_selects_every_business_table_and_nothing_else_in_the_schema)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 479, in test_reader_selects_every_business_table_and_nothing_else_in_the_schema\n    self.assertTrue(self.c.role_exists(\"products_reader\"), \"products_reader does not exist\")\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true : products_reader does not exist\n"
+    ],
+    [
+      "test_reexecuting_the_new_migrations_raw_is_safe (approved_integrity.LatestCleanInstall.test_reexecuting_the_new_migrations_raw_is_safe)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 545, in test_reexecuting_the_new_migrations_raw_is_safe\n    path = self.new_migration(folder)\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 374, in new_migration\n    self.fail(f\"expected exactly one new migration (V{BASELINE + 1:03d}+) in {folder}, found {len(found)}\")\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: expected exactly one new migration (V018+) in 01_ddl/04_alter, found 0\n"
+    ],
+    [
+      "test_upgrade_from_populated_v017_preserves_rows_and_frozen_values (approved_integrity.PopulatedUpgrade.test_upgrade_from_populated_v017_preserves_rows_and_frozen_values)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 563, in test_upgrade_from_populated_v017_preserves_rows_and_frozen_values\n    self.assertMigratedToLatest(c, c.migrate())\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 379, in assertMigratedToLatest\n    self.assertGreater(expected, BASELINE, f\"no migration after V{BASELINE:03d} exists in the repository\")\n    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 17 not greater than 17 : no migration after V017 exists in the repository\n"
+    ],
+    [
+      "test_full_historical_rollback_discovery_order_and_rebuild (approved_integrity.Rollbacks.test_full_historical_rollback_discovery_order_and_rebuild)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 742, in test_full_historical_rollback_discovery_order_and_rebuild\n    self.assertMigratedToLatest(c, res)\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 379, in assertMigratedToLatest\n    self.assertGreater(expected, BASELINE, f\"no migration after V{BASELINE:03d} exists in the repository\")\n    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 17 not greater than 17 : no migration after V017 exists in the repository\n"
+    ],
+    [
+      "test_new_rollbacks_20_to_18_then_reapply_restores_everything (approved_integrity.Rollbacks.test_new_rollbacks_20_to_18_then_reapply_restores_everything)",
+      "Traceback (most recent call last):\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 707, in test_new_rollbacks_20_to_18_then_reapply_restores_everything\n    self.populate_then_latest(c)\n    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 418, in populate_then_latest\n    self.assertMigratedToLatest(cluster, res)\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^\n  File \"C:\\Users\\ASUS\\Desktop\\synkro-workspace\\.worktrees\\products-health-integrity\\synkro-products-db\\tests\\test_approved_integrity.py\", line 379, in assertMigratedToLatest\n    self.assertGreater(expected, BASELINE, f\"no migration after V{BASELINE:03d} exists in the repository\")\n    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 17 not greater than 17 : no migration after V017 exists in the repository\n"
+    ]
+  ],
+  "errors": [],
+  "skips": [],
+  "source_before": {
+    "flyway.toml": "48e73724cca4bccf9cebe0205f81be4566544157946514542efd5f449c9f74a3",
+    "tests/test_approved_integrity.py": "eccaa4d587a6e239c3a4bb5e9798a4a3254ca2d448a2feb2fe4f24915969203a",
+    "tests/test_history_contract.py": "3ec4af0ecba4a115fc16db198c27460a8522a741f998a3393b7c9b85a086a11b",
+    "05_rollbacks/03_dcl/00_roles/U002__create_roles.sql": "8b236d77141ecba83ae5ea4926a1bf3f04dd1000aaedf3af01215dccaa03e8a6",
+    "05_rollbacks/03_dcl/01_grants/U003__grants.sql": "727c21399c8433f4b06afcd0c3b2839319848c33a7aaaa56ca8b4db21b86386c",
+    "05_rollbacks/01_ddl/01_schemas/U001__create_schema_products.sql": "2711f9a679a8439be8cb80e78541e6295da6ca7b7a1f0f8e0c09fb61bd17b437",
+    "05_rollbacks/01_ddl/03_tables/U004__create_category.sql": "eb7467ae8fbe599defdf12958e3dc63f7a01f2b5145fc10bdef104c4018b4c91",
+    "05_rollbacks/01_ddl/03_tables/U005__create_product.sql": "e4f2083e042faa4f616a1271ba09bb205471f1d95937709de25994d42abc2fdb",
+    "05_rollbacks/01_ddl/03_tables/U008__create_idempotency_key.sql": "cf3976f04d27d6ccf3c43794b497cd436c585389e780072f280b3ac3e478fb51",
+    "05_rollbacks/01_ddl/03_tables/U009__create_stock_adjustment.sql": "d2e86030ee65241519b7f00060e4083f6f4b9b92d3431c8366e034d33612221c",
+    "05_rollbacks/01_ddl/03_tables/U010__create_stock_reservation.sql": "11acc09bd4629da7fd4975e1871581445434c07fa763a0ec001f539f85bc8a36",
+    "05_rollbacks/01_ddl/03_tables/U011__create_stock_reservation_line.sql": "05f8536fa5d2ce379c26ff6f9439d2ba807f470e04eb61da888c77489dc94dd3",
+    "05_rollbacks/01_ddl/03_tables/U014__create_stock_alert.sql": "1b8618f2dcde366857c4f275a974e8cd0d796bc06796bdb5019faf0735c3339f",
+    "05_rollbacks/01_ddl/04_alter/U006__add_foreign_keys.sql": "525fe40bb9ae0d1c064b8d7d7802996ae9227a565f3191097fd2a02e1695f7c3",
+    "05_rollbacks/01_ddl/04_alter/U012__add_foreign_keys.sql": "9b7fc687344960408d7cb9cc639a8ffefc59b15eec98de01c618b713b7dd11c9",
+    "05_rollbacks/01_ddl/04_alter/U015__add_foreign_keys.sql": "db06c81954cdcc61baf758bce590ab9d4d827c594e770fa0a30b7d1ab8ba22ba",
+    "05_rollbacks/01_ddl/04_alter/U017__add_stock_after_to_stock_adjustment.sql": "8b95753773647b2caa3d1d28301b6c4d9e82c9510eb1788e05b6538277cf1410",
+    "05_rollbacks/01_ddl/10_indexes/U007__create_indexes.sql": "374532c210fbfcf8fd6b2b0f67eb668fab64568321f33c8be07601404cce75dd",
+    "05_rollbacks/01_ddl/10_indexes/U013__create_indexes.sql": "b1582cdbd54c55def2f687c4be06ac9d228f4e3e08e705a63220077e99c049f2",
+    "05_rollbacks/01_ddl/10_indexes/U016__create_indexes.sql": "66a41d44ac68b8aeeb9ab0da3bec31fe39fdeb6c87e9990d5a80b52374ef8fdf",
+    "03_dcl/00_roles/V002__create_roles.sql": "a1beae86b6a2a55cbb36d85a67b71aeb0296ea20df02cd9b70cb7dfe7a0185c1",
+    "03_dcl/01_grants/V003__grants.sql": "52773b5314914077f4a1d1fd76b36fb8c4cedaed545017ee1fc799f805108e92",
+    "01_ddl/01_schemas/V001__create_schema_products.sql": "6bd6c096d3d0685945ca71c1d1df66365fa87683c98996ca7bbff97c97529473",
+    "01_ddl/03_tables/V004__create_category.sql": "d7b6f2dd5ec152ff09528df006a24ea3defa9951e9957185d629a8c4a5b28a53",
+    "01_ddl/03_tables/V005__create_product.sql": "b694f69ea4ff1b457ec4df700d6af208e5e705063dd4f7690aecdf5800d4829d",
+    "01_ddl/03_tables/V008__create_idempotency_key.sql": "83e1f689e94975d4c8f1c9fd1bf7d2ab14d628b632e3eb8540df2bbe305002d6",
+    "01_ddl/03_tables/V009__create_stock_adjustment.sql": "c5aae2f4e6f8ff4b04d640fb644c2942d67e3b0e4460f19959dcafa2bfadf1f5",
+    "01_ddl/03_tables/V010__create_stock_reservation.sql": "16e0233c050d5029c12cd81dfb6f075b0ab52503e981c825df93b7618dcdce72",
+    "01_ddl/03_tables/V011__create_stock_reservation_line.sql": "a05a8dd6dadaa5dc86830762b82237c425efaa378a2e4a0771adeadbd972f326",
+    "01_ddl/03_tables/V014__create_stock_alert.sql": "6ab46fa8dd9d253555fde0f60a80b1e94cb18563998f3a443c8855d06c1131fa",
+    "01_ddl/04_alter/V006__add_foreign_keys.sql": "d2ee42bfc4edb77ddbea2874b653cd91293e7777f7112f790278996b6af2e3dd",
+    "01_ddl/04_alter/V012__add_foreign_keys.sql": "884f85e4a9eb4459a542c7d6358ef9e8757e14fa44e4cd6c19f728911f9e59cd",
+    "01_ddl/04_alter/V015__add_foreign_keys.sql": "f15c4e60b5c054b2d2fa76d1ee44bcabfbe6709140de66832fac037dda05fab0",
+    "01_ddl/04_alter/V017__add_stock_after_to_stock_adjustment.sql": "3d94c123aeec2903482dcd5643e43a060c0cd57665fad18aec7919c2b1cb717f",
+    "01_ddl/10_indexes/V007__create_indexes.sql": "408084eeb162008135e08d0626f05168ac087a6dbe5b9b853090a303c5bccf29",
+    "01_ddl/10_indexes/V013__create_indexes.sql": "55832144b491a6c92ddccedf4a1387739c365d23bf9dc51ed2adef8a11edbc27",
+    "01_ddl/10_indexes/V016__create_indexes.sql": "fa165e05b95477e6bfc8459b1859ebc0ac77e3c3197ff999751ab8502cd080bd"
+  },
+  "source_after": {
+    "flyway.toml": "48e73724cca4bccf9cebe0205f81be4566544157946514542efd5f449c9f74a3",
+    "tests/test_approved_integrity.py": "eccaa4d587a6e239c3a4bb5e9798a4a3254ca2d448a2feb2fe4f24915969203a",
+    "tests/test_history_contract.py": "3ec4af0ecba4a115fc16db198c27460a8522a741f998a3393b7c9b85a086a11b",
+    "05_rollbacks/03_dcl/00_roles/U002__create_roles.sql": "8b236d77141ecba83ae5ea4926a1bf3f04dd1000aaedf3af01215dccaa03e8a6",
+    "05_rollbacks/03_dcl/01_grants/U003__grants.sql": "727c21399c8433f4b06afcd0c3b2839319848c33a7aaaa56ca8b4db21b86386c",
+    "05_rollbacks/01_ddl/01_schemas/U001__create_schema_products.sql": "2711f9a679a8439be8cb80e78541e6295da6ca7b7a1f0f8e0c09fb61bd17b437",
+    "05_rollbacks/01_ddl/03_tables/U004__create_category.sql": "eb7467ae8fbe599defdf12958e3dc63f7a01f2b5145fc10bdef104c4018b4c91",
+    "05_rollbacks/01_ddl/03_tables/U005__create_product.sql": "e4f2083e042faa4f616a1271ba09bb205471f1d95937709de25994d42abc2fdb",
+    "05_rollbacks/01_ddl/03_tables/U008__create_idempotency_key.sql": "cf3976f04d27d6ccf3c43794b497cd436c585389e780072f280b3ac3e478fb51",
+    "05_rollbacks/01_ddl/03_tables/U009__create_stock_adjustment.sql": "d2e86030ee65241519b7f00060e4083f6f4b9b92d3431c8366e034d33612221c",
+    "05_rollbacks/01_ddl/03_tables/U010__create_stock_reservation.sql": "11acc09bd4629da7fd4975e1871581445434c07fa763a0ec001f539f85bc8a36",
+    "05_rollbacks/01_ddl/03_tables/U011__create_stock_reservation_line.sql": "05f8536fa5d2ce379c26ff6f9439d2ba807f470e04eb61da888c77489dc94dd3",
+    "05_rollbacks/01_ddl/03_tables/U014__create_stock_alert.sql": "1b8618f2dcde366857c4f275a974e8cd0d796bc06796bdb5019faf0735c3339f",
+    "05_rollbacks/01_ddl/04_alter/U006__add_foreign_keys.sql": "525fe40bb9ae0d1c064b8d7d7802996ae9227a565f3191097fd2a02e1695f7c3",
+    "05_rollbacks/01_ddl/04_alter/U012__add_foreign_keys.sql": "9b7fc687344960408d7cb9cc639a8ffefc59b15eec98de01c618b713b7dd11c9",
+    "05_rollbacks/01_ddl/04_alter/U015__add_foreign_keys.sql": "db06c81954cdcc61baf758bce590ab9d4d827c594e770fa0a30b7d1ab8ba22ba",
+    "05_rollbacks/01_ddl/04_alter/U017__add_stock_after_to_stock_adjustment.sql": "8b95753773647b2caa3d1d28301b6c4d9e82c9510eb1788e05b6538277cf1410",
+    "05_rollbacks/01_ddl/10_indexes/U007__create_indexes.sql": "374532c210fbfcf8fd6b2b0f67eb668fab64568321f33c8be07601404cce75dd",
+    "05_rollbacks/01_ddl/10_indexes/U013__create_indexes.sql": "b1582cdbd54c55def2f687c4be06ac9d228f4e3e08e705a63220077e99c049f2",
+    "05_rollbacks/01_ddl/10_indexes/U016__create_indexes.sql": "66a41d44ac68b8aeeb9ab0da3bec31fe39fdeb6c87e9990d5a80b52374ef8fdf",
+    "03_dcl/00_roles/V002__create_roles.sql": "a1beae86b6a2a55cbb36d85a67b71aeb0296ea20df02cd9b70cb7dfe7a0185c1",
+    "03_dcl/01_grants/V003__grants.sql": "52773b5314914077f4a1d1fd76b36fb8c4cedaed545017ee1fc799f805108e92",
+    "01_ddl/01_schemas/V001__create_schema_products.sql": "6bd6c096d3d0685945ca71c1d1df66365fa87683c98996ca7bbff97c97529473",
+    "01_ddl/03_tables/V004__create_category.sql": "d7b6f2dd5ec152ff09528df006a24ea3defa9951e9957185d629a8c4a5b28a53",
+    "01_ddl/03_tables/V005__create_product.sql": "b694f69ea4ff1b457ec4df700d6af208e5e705063dd4f7690aecdf5800d4829d",
+    "01_ddl/03_tables/V008__create_idempotency_key.sql": "83e1f689e94975d4c8f1c9fd1bf7d2ab14d628b632e3eb8540df2bbe305002d6",
+    "01_ddl/03_tables/V009__create_stock_adjustment.sql": "c5aae2f4e6f8ff4b04d640fb644c2942d67e3b0e4460f19959dcafa2bfadf1f5",
+    "01_ddl/03_tables/V010__create_stock_reservation.sql": "16e0233c050d5029c12cd81dfb6f075b0ab52503e981c825df93b7618dcdce72",
+    "01_ddl/03_tables/V011__create_stock_reservation_line.sql": "a05a8dd6dadaa5dc86830762b82237c425efaa378a2e4a0771adeadbd972f326",
+    "01_ddl/03_tables/V014__create_stock_alert.sql": "6ab46fa8dd9d253555fde0f60a80b1e94cb18563998f3a443c8855d06c1131fa",
+    "01_ddl/04_alter/V006__add_foreign_keys.sql": "d2ee42bfc4edb77ddbea2874b653cd91293e7777f7112f790278996b6af2e3dd",
+    "01_ddl/04_alter/V012__add_foreign_keys.sql": "884f85e4a9eb4459a542c7d6358ef9e8757e14fa44e4cd6c19f728911f9e59cd",
+    "01_ddl/04_alter/V015__add_foreign_keys.sql": "f15c4e60b5c054b2d2fa76d1ee44bcabfbe6709140de66832fac037dda05fab0",
+    "01_ddl/04_alter/V017__add_stock_after_to_stock_adjustment.sql": "3d94c123aeec2903482dcd5643e43a060c0cd57665fad18aec7919c2b1cb717f",
+    "01_ddl/10_indexes/V007__create_indexes.sql": "408084eeb162008135e08d0626f05168ac087a6dbe5b9b853090a303c5bccf29",
+    "01_ddl/10_indexes/V013__create_indexes.sql": "55832144b491a6c92ddccedf4a1387739c365d23bf9dc51ed2adef8a11edbc27",
+    "01_ddl/10_indexes/V016__create_indexes.sql": "fa165e05b95477e6bfc8459b1859ebc0ac77e3c3197ff999751ab8502cd080bd"
+  },
+  "log_sha256": "06df728315e1e03b7e63558ea5ffdcfc4a9a711585b8a1f29cc37591a2e96713",
+  "remaining_containers": [],
+  "remaining_networks": [],
+  "interpretation": "Real PostgreSQL baseline17 succeeded. Missing UNIQUE allowed duplicate insert; reader absent; dirty data migrated successfully. Assertions failed before new SQL existed. File-presence failures are separate supporting signals."
+}

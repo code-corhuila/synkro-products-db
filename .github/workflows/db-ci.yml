@@ -325,3 +325,8 @@ jobs:
       - name: Migrate again after disposable reconstruction
         run: |
           flyway -configFiles=flyway.toml migrate
+
+      - name: Approved Products integrity — real upgrade, reader, duplicate and rollback cases
+        env:
+          PRODUCTS_TEST_DISPOSABLE: "1"
+        run: python3 tests/test_approved_integrity.py
