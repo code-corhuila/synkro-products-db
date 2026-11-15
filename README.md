@@ -131,6 +131,7 @@ See [Git conventions](https://github.com/code-corhuila/synkro-docs/blob/main/00-
 - [Ci rebuild check](docs/ci-rebuild-check.md).
 - [Root composition](docs/root-composition.md).
 - [QA promotion record (HU-PRO-15)](docs/qa-promotion.md).
+- [Main promotion verification (HU-PRO-15)](docs/main-promotion.md).
 - [Domain rules](https://github.com/code-corhuila/synkro-docs/blob/main/02-domain/entities-and-rules.md), [contracts](https://github.com/code-corhuila/synkro-docs/tree/main/07-api/contracts/openapi) and [testing strategy](https://github.com/code-corhuila/synkro-docs/blob/main/11-quality/testing-strategy.md).
 
 <!-- Preserve previously published README section links. -->
