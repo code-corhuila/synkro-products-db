@@ -101,9 +101,13 @@ jobs:
           fi
 
       - name: Privilege check — products_app's table privileges
-        # Table privileges come only from V003's ALTER DEFAULT PRIVILEGES,
-        # which covers tables created by the role that ran V003. Exactly
-        # SELECT, INSERT, UPDATE on every business table; never DELETE. The migration ledger is administrator-only.
+        # Table privileges come from V003's ALTER DEFAULT PRIVILEGES, which
+        # covers tables created by the role that ran V003: SELECT, INSERT,
+        # UPDATE on every business table; never DELETE. The one exception is
+        # the append-only audit table product_price_history (V024): SELECT and
+        # INSERT only, never UPDATE or DELETE. Add a table to the append-only
+        # list below only together with the migration that revokes UPDATE on
+        # it. The migration ledger is administrator-only.
         run: |
           result=$(psql -h localhost -U postgres -d postgres -tAc "
             SELECT string_agg(format('%s %s=%s', t.tablename, p.priv,
@@ -112,7 +116,9 @@ jobs:
             FROM pg_tables t
             CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
             WHERE t.schemaname = 'products_schema' AND t.tablename <> 'flyway_schema_history'
-              AND has_table_privilege('products_app', format('%I.%I', t.schemaname, t.tablename), p.priv) <> (p.priv <> 'DELETE');")
+              AND has_table_privilege('products_app', format('%I.%I', t.schemaname, t.tablename), p.priv)
+                  <> (p.priv IN ('SELECT', 'INSERT')
+                      OR (p.priv = 'UPDATE' AND t.tablename NOT IN ('product_price_history')));")
           tables=$(psql -h localhost -U postgres -d postgres -tAc \
             "SELECT count(*) FROM pg_tables WHERE schemaname = 'products_schema' AND tablename <> 'flyway_schema_history';")
           echo "Tables in products_schema ($tables): $(psql -h localhost -U postgres -d postgres -tAc \
@@ -286,7 +292,53 @@ jobs:
           $PSQL -c "INSERT INTO products_schema.stock_alert (alert_id, product_id, status, stock_at_opening) VALUES ('d0000000-0000-0000-0000-000000000012', '$PROD', 'OPEN', 3);"
           echo "PASS: new OPEN stock_alert accepted after the previous one was resolved"
 
+          # product_price_history: control, then one rejection per rule
+          HISTORY_PROD=66666666-6666-6666-6666-666666666667
+          $PSQL -c "INSERT INTO products_schema.product (product_id, name, price_cents, category_id) VALUES ('$HISTORY_PROD', 'History-only product', 1000, '$CAT');"
+          HIST="INSERT INTO products_schema.product_price_history (history_id, product_id, sequence_no, old_price_cents, new_price_cents, changed_by, changed_at) VALUES"
+          $PSQL -c "$HIST ('e1000000-0000-0000-0000-000000000001', '$HISTORY_PROD', 1, 1000, 1500, '$USER_ID', now());"
+          echo "PASS: valid product_price_history accepted (control)"
+
+          expect_violation 23514 chk_product_price_history_price_changed \
+            "$HIST ('e1000000-0000-0000-0000-000000000002', '$HISTORY_PROD', 2, 1500, 1500, '$USER_ID', now());"
+
+          expect_violation 23514 chk_product_price_history_old_price_positive \
+            "$HIST ('e1000000-0000-0000-0000-000000000003', '$HISTORY_PROD', 2, 0, 1500, '$USER_ID', now());"
+
+          expect_violation 23514 chk_product_price_history_new_price_positive \
+            "$HIST ('e1000000-0000-0000-0000-000000000004', '$HISTORY_PROD', 2, 1500, 0, '$USER_ID', now());"
+
+          expect_violation 23514 chk_product_price_history_sequence_positive \
+            "$HIST ('e1000000-0000-0000-0000-000000000005', '$HISTORY_PROD', 0, 1500, 2000, '$USER_ID', now());"
+
+          expect_violation 23505 uq_product_price_history_product_sequence \
+            "$HIST ('e1000000-0000-0000-0000-000000000006', '$HISTORY_PROD', 1, 1500, 2000, '$USER_ID', now());"
+
+          expect_violation 23503 fk_product_price_history_product \
+            "$HIST ('e1000000-0000-0000-0000-000000000007', '$NO_SUCH_ID', 1, 1000, 1500, '$USER_ID', now());"
+
+          # RESTRICT: a product with history cannot be deleted
+          expect_violation 23503 fk_product_price_history_product \
+            "DELETE FROM products_schema.product WHERE product_id = '$HISTORY_PROD';"
+
+          # append-only: the writer role can insert and read but not change or delete history
+          expect_denied() {
+            local out
+            if out=$($PSQL -v VERBOSITY=verbose -c "SET ROLE products_writer; $1" 2>&1); then
+              echo "FAIL: accepted, expected permission denied: $1"; exit 1
+            fi
+            if ! grep -q "ERROR:  42501: permission denied for table product_price_history" <<< "$out"; then
+              echo "FAIL: rejected for the wrong reason, expected 42501, got:"
+              echo "$out"; exit 1
+            fi
+            echo "PASS: products_writer denied: $1"
+          }
+          expect_denied "UPDATE products_schema.product_price_history SET new_price_cents = 1;"
+          expect_denied "DELETE FROM products_schema.product_price_history;"
+          expect_denied "TRUNCATE products_schema.product_price_history;"
+
           # clean up before the rollback step runs, children before parents
+          $PSQL -c "DELETE FROM products_schema.product_price_history;"
           $PSQL -c "DELETE FROM products_schema.stock_alert;"
           $PSQL -c "DELETE FROM products_schema.stock_reservation_line;"
           $PSQL -c "DELETE FROM products_schema.stock_reservation;"
@@ -330,3 +382,8 @@ jobs:
         env:
           PRODUCTS_TEST_DISPOSABLE: "1"
         run: python3 tests/test_approved_integrity.py
+
+      - name: Product price history — constraints, append-only privileges, upgrade and rollback
+        env:
+          PRODUCTS_TEST_DISPOSABLE: "1"
+        run: python3 tests/test_price_history.py
