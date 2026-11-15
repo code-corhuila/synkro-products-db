@@ -1,0 +1,37 @@
+{
+  "feature": "Products price history V021-V024",
+  "date": "2026-11-15",
+  "authoring_order": [
+    "Owning-repository design",
+    "Database tests",
+    "New migrations and workflow checks"
+  ],
+  "red": {
+    "observed": true,
+    "timing": "Observed by Codex against a separate V020-only snapshot after authoring; not observed during the original Claude authoring session.",
+    "command": "PRODUCTS_TEST_DISPOSABLE=1 python tests/test_price_history.py LatestCleanInstall.test_all_four_migrations_are_applied",
+    "result": "1 expected assertion failure: [] != [21,22,23,24]; real V020 bootstrap succeeded."
+  },
+  "green": {
+    "observed": true,
+    "tests": [
+      {
+        "command": "PRODUCTS_TEST_DISPOSABLE=1 python tests/test_price_history.py",
+        "result": "15 passed"
+      },
+      {
+        "command": "PRODUCTS_TEST_DISPOSABLE=1 python tests/test_approved_integrity.py",
+        "result": "18 passed"
+      },
+      {
+        "command": "python tests/test_history_contract.py",
+        "result": "2 passed"
+      }
+    ],
+    "workflow_sql": "Actual privilege and negative-path SQL blocks also passed on disposable PostgreSQL, with the database target adapted to the harness."
+  },
+  "hosted_actions": "Not yet credited as passed",
+  "postgres": "16.15-alpine3.23",
+  "flyway": "11.20.3-alpine",
+  "historical_migrations": "V001-V020 and U001-U020 unchanged"
+}

@@ -42,6 +42,8 @@ FLYWAY_IMAGE = "flyway/flyway:11.20.3-alpine"
 LABEL = "synkro.products.integrity-test"
 RUN_ID = uuid.uuid4().hex[:12]
 BASELINE = 17
+APPROVED_LAST = 20  # V018..V020 are this suite's scope; later migrations have their own suites
+HISTORY_TABLE = "product_price_history"  # V021+, covered by tests/test_price_history.py
 MIGRATOR = "pro15_migrator"  # the effective migration creator: deliberately not postgres
 CONSTRAINT = "uq_stock_reservation_line_reservation_product"
 LINE_TABLE = "stock_reservation_line"
@@ -369,9 +371,10 @@ class IntegrityCase(unittest.TestCase):
 
     # --- helpers that turn a missing feature into an assertion failure
     def new_migration(self, folder):
-        found = sorted(p for v, p in repo_versions().items() if v > BASELINE and p.parent == ROOT / folder)
+        found = sorted(p for v, p in repo_versions().items()
+                       if BASELINE < v <= APPROVED_LAST and p.parent == ROOT / folder)
         if len(found) != 1:
-            self.fail(f"expected exactly one new migration (V{BASELINE + 1:03d}+) in {folder}, found {len(found)}")
+            self.fail(f"expected exactly one approved-integrity migration (V{BASELINE + 1:03d}..V{APPROVED_LAST:03d}) in {folder}, found {len(found)}")
         return found[0]
 
     def assertMigratedToLatest(self, cluster, res):
@@ -441,7 +444,9 @@ class LatestCleanInstall(IntegrityCase):
     def test_only_the_named_unique_constraint_and_its_index_are_added(self):
         self.assertNamedUniqueConstraint(self.c)
         for kind in ("constraints", "indexes"):
-            added = [r for r in self.after[kind] if r not in self.before[kind]]
+            # objects of the later price-history migrations belong to their own suite
+            after = [r for r in self.after[kind] if HISTORY_TABLE not in " ".join(r)]
+            added = [r for r in after if r not in self.before[kind]]
             removed = [r for r in self.before[kind] if r not in self.after[kind]]
             self.assertEqual(removed, [], f"existing {kind} changed")
             self.assertEqual(len(added), 1, f"expected only the new {kind[:-1]}, got {added}")
@@ -478,8 +483,8 @@ class LatestCleanInstall(IntegrityCase):
     def test_reader_selects_every_business_table_and_nothing_else_in_the_schema(self):
         self.assertTrue(self.c.role_exists("products_reader"), "products_reader does not exist")
         tables = self.c.js("SELECT json_agg(tablename ORDER BY tablename) FROM pg_tables WHERE schemaname = 'products_schema'")
-        self.assertEqual(sorted(tables), sorted(BUSINESS_TABLES + [LEDGER]),
-                         "a table outside the seven reviewed ones needs a new classification before any grant")
+        self.assertEqual(sorted(tables), sorted(BUSINESS_TABLES + [HISTORY_TABLE, LEDGER]),
+                         "a table outside the reviewed ones needs a new classification before any grant")
         self.assertEqual(self.c.one("SELECT has_schema_privilege('products_reader', 'products_schema', 'USAGE')"), "t")
         self.assertEqual(self.c.one("SELECT has_schema_privilege('products_reader', 'products_schema', 'CREATE')"), "f")
         for table in BUSINESS_TABLES:
