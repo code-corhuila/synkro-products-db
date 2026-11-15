@@ -1,7 +1,7 @@
 # Approved Products integrity (HU-PRO-15, TD-018): design
 
-Status: design written before any SQL. Nothing described here has been
-executed yet; see "Pending executions".
+Status: design and tests preceded SQL in `c634b18`. The real RED and subsequent
+verification are recorded below; no target environment deployment is claimed.
 
 ## Scope
 
@@ -42,8 +42,8 @@ Each has a mirrored `U0NN__<name>.rollback.sql` under `05_rollbacks`.
   aborts with one fixed message that names the table and says "duplicate". It
   carries no row data. Nothing is deleted or merged automatically.
 - The unique index is built with `CREATE UNIQUE INDEX CONCURRENTLY`, then
-  attached with `ADD CONSTRAINT ... UNIQUE USING INDEX`, so existing data is
-  never indexed under a blocking lock. The index is the physical backing of the
+  attached with `ADD CONSTRAINT ... UNIQUE USING INDEX`, so the long index build permits normal writes. Attaching the constraint still
+  needs a brief table lock, bounded by the script's 5 s lock timeout. The index is the physical backing of the
   constraint, not an extra business index.
 - `CONCURRENTLY` cannot run in a transaction: a per-file
   `V018__<name>.sql.conf` sets `executeInTransaction=false`. The existing
@@ -59,7 +59,8 @@ Each has a mirrored `U0NN__<name>.rollback.sql` under `05_rollbacks`.
 
 - An existing `products_reader` that is not `NOLOGIN`, passwordless and free of
   dangerous attributes makes the migration fail; it is never granted access.
-  A safe existing one is adopted.
+  A safe existing one is adopted. Existing write grants, foreign-business access
+  or unsafe defaults also stop adoption without silently revoking them.
 - No login role is created by a migration and nothing is a member of the role.
 - `V020` grants only to the seven reviewed tables below, never to the ledger,
   and sets default privileges for the **current effective migration creator**
@@ -155,8 +156,45 @@ It refuses to run without that variable. Every container and network carries
 name is used, and secrets are passed by environment or stdin and redacted from
 any output. The repository is copied with `docker cp`, no bind mount.
 
-## Pending executions
+## Executed verification and traceability
 
-None of the following has been run: RED on the baseline, the migrations, the
-rollbacks, the harness itself, CI. They are executed and recorded by the
-implementer after this document, and results are reported then.
+- Baseline: develop `0beae79920d9af83865bdebaf6b316a2b2a57592`; versions were
+  rechecked free before implementation. No V001..V017 or historical U was edited.
+- Test-first commit `c634b18`: real PostgreSQL baseline17 succeeded; 16 of 17
+  tests failed, including an accepted duplicate INSERT, absent reader/constraint
+  and successful migration of dirty data. File-presence failures are supporting
+  signals, not the functional RED. [RED record](evidence/approved-integrity-tdd.json).
+- An additional regression reproduced adoption of an existing role with write
+  or foreign-read access before the validation was added: two failed subcases,
+  zero setup errors. [Record](evidence/existing-reader-acl-red.json).
+- Final suite: 18 tests passed, zero failures/errors/skips, owned resources
+  removed. PostgreSQL 16.15 and Flyway 11.20.3. Includes effective creator
+  `pro15_migrator` (disposable instance administrator), never an assumed postgres.
+  [Final record](evidence/approved-integrity-verification.json).
+- All 10 applicable local CI run blocks passed, including every historical/new
+  U in descending order and reconstruction. CI uses postgres as effective
+  creator; the dedicated suite additionally proves the nondefault creator.
+  [Rebuild record](evidence/full-ci-rebuild.json).
+- Initial local collector/path/stdin failures were fixture errors, not product
+  RED. A first implementation failed on a premature regclass cast; the nullable
+  catalog lookup fixed it before the final green. Raw logs stay local; tracked
+  JSON contains outcomes, source/log hashes and no database credentials.
+
+| Requirements | Story | Tests | Implementation |
+|---|---|---|---|
+| FR-004/007, NFR-009 | HU-PRO-15 | named UNIQUE, valid controls, populated upgrade, dirty legacy, rollback cases | V018 and U018 |
+| NFR-004/009 | HU-PRO-15 | reader attrs/ACLs, foreign/ledger denial, effective creator, unsafe adoption | V019/V020 and U019/U020 |
+| NFR-006 | HU-PRO-15 | test-first record and full CI rebuild | tests/test_approved_integrity.py, db-ci.yml |
+
+Sources: [domain rules](https://github.com/code-corhuila/synkro-docs/blob/main/02-domain/entities-and-rules.md),
+[data model](https://github.com/code-corhuila/synkro-docs/blob/main/06-data/models.md),
+and [HU-PRO-15](https://github.com/code-corhuila/synkro-docs/issues/317).
+No new ADR is needed: this enforces the accepted aggregate and access design.
+
+The central technical backlog, dictionary, testing strategy and traceability
+reconciliation remain pending. The project owner explicitly excluded execution
+of HU-DOCS-98 from this delivery. TD-018 is only partially addressed here and
+stays OPEN for the five differences listed above; TD-012 remains untouched.
+No QA/main promotion or deployment is claimed. Before each real rollout,
+confirm that environment's effective migration creator and run the duplicate
+preflight; a dirty target stops until its owner agrees treatment.

@@ -669,6 +669,27 @@ class ExistingReaderRole(IntegrityCase):
             self.assertEqual(c.one(f"SELECT has_table_privilege('products_reader', 'products_schema.{table}', 'SELECT')"), "f")
         self.assertEqual([d for d in c.structure()["default_acl"] if "products_reader" in d[2]], [])
 
+    def test_preexisting_write_or_foreign_access_is_refused_before_new_grants(self):
+        for access in ("write", "foreign"):
+            with self.subTest(access=access):
+                c = self.cluster()
+                c.baseline()
+                c.sql_ok("CREATE ROLE products_reader NOLOGIN;")
+                if access == "write":
+                    c.sql_ok("GRANT UPDATE ON products_schema.product TO products_reader;")
+                else:
+                    c.sql_ok("GRANT USAGE ON SCHEMA customers_schema TO products_reader;"
+                             "GRANT SELECT ON customers_schema.customer TO products_reader;")
+                rows, before = c.rows(), c.structure()
+
+                migrated = c.migrate()
+
+                self.assertNotEqual(migrated.rc, 0,
+                                    "unsafe existing permissions must stop adoption, not gain additional access")
+                self.assertEqual(c.rows(), rows)
+                self.assertEqual(c.structure()["table_acl"], before["table_acl"])
+                self.assertEqual(c.one("SELECT has_table_privilege('products_reader', 'products_schema.product', 'SELECT')"), "f")
+
     def test_a_safe_existing_role_is_adopted_idempotently(self):
         c = self.cluster()
         c.baseline()
