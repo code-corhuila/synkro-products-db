@@ -1,210 +1,141 @@
 # synkro-products-db
 
-> products bounded context: database (schema, seeds, migrations)
+> Products schema migrations for catalog, inventory, reservations and alerts, with roles, reversions and integrity checks.
 
-Part of the **SynkroTech SAS Sales Management System** — organization `code-corhuila`.
-Governance and documentation live in [`synkro-docs`](https://github.com/code-corhuila/synkro-docs).
+Part of the **SynkroTech SAS Sales Management System**. Architecture, decisions and
+contracts live in [synkro-docs](https://github.com/code-corhuila/synkro-docs).
 
-## Branching
+**Quick start:** start PostgreSQL through synkro-infra-postgres, configure the migration credentials, then invoke `products-db-migrate` from this root. See [Getting started](#getting-started).
 
-Three permanent branches. **None of them accepts a direct commit** — you enter through a child
-branch and leave through a Pull Request.
+## What it does
 
+- Owns products_schema and catalog, stock, reservation, alert and idempotency structures.
+- Versions application writer grants and the products_reader role.
+- Enforces reservation-line product uniqueness through the approved additive migration.
+- Adds the append-only `product_price_history` audit table (V021–V024), writable by the application only through `SELECT` and `INSERT`.
+- Keeps applied migrations immutable and provides reverse/rebuild verification.
+
+## Where it fits
+
+```mermaid
+erDiagram
+  category ||--o{ product : "classifies"
+  product ||--o{ stock_adjustment : "adjustments"
+  product ||--o{ product_price_history : "price changes"
+  stock_reservation ||--|{ stock_reservation_line : "contains"
+  product ||--o{ stock_reservation_line : "reserved product"
+  product ||--o{ stock_alert : "alerts"
 ```
-develop  <--PR--  feat/... fix/... chore/...
-qa       <--PR--  qa/...
-main     <--PR--  release/...  hotfix/...
-```
 
-Promotion happens **by re-application** (`git cherry-pick -x`), never by merging one permanent
-branch into another: `merge develop -> qa` and `merge qa -> main` do not exist in this model.
+Infrastructure owns the PostgreSQL container, database, application login and volume. This repository contributes its tooling migration runner; application code connects with products_app.
 
-`main` requires **1 approval from `ariel5253`**. On `develop` and `qa` the team sets its own review
-rule.
+## Tech stack
 
-Full policy: `00-governance/branching-policy.md` in `synkro-docs`.
+| Component | Choice |
+|---|---|
+| Engine | PostgreSQL 16; shared instance, domain schema |
+| Migration tool | Flyway 11.20.3 |
+| Runner | products-db-migrate; one-shot tooling profile |
+| Verification | Real PostgreSQL rebuild, permissions and constraint checks |
 
-## Layout
+## Dependencies
 
-The team groups Flyway scripts by SQL family. Every family folder exists from day one,
-even when empty (`.gitkeep`), so execution order never has to be renumbered.
-
-| Folder | Content | Run by |
+| Depends on | Purpose | Configuration |
 |---|---|---|
-| `01_ddl/` | schemas, types, tables, alters, views, functions, procedures, triggers, indexes | Flyway |
-| `02_dml/` | inserts, updates, deletes, upserts, patches | Flyway |
-| `03_dcl/` | roles, grants, row-level policies | Flyway |
-| `04_tcl/` | transaction blocks, manual recoveries, release tags | Flyway |
-| `05_rollbacks/` | one `U` script per `V` migration, mirroring its folder | `psql` only (CI and manual recovery) |
-| `deploy/compose.yml` | the migration runner (no database: that is `synkro-infra-postgres`) | Docker Compose |
+| synkro-infra-postgres | Database, login and lifecycle | External platform network |
+| Administrative migration credentials | Apply DDL/DCL; never runtime app credentials | FLYWAY_URL / FLYWAY_USER / FLYWAY_PASSWORD |
+| products_app | Receives the owning application grants | Provisioned by infrastructure |
 
-Rules every new migration follows:
+## Getting started
 
-- **One version sequence for the whole repository** — `V001`, `V002`, `V003`, … — whatever folder
-  the file lives in. Take the next free number; never renumber.
-- **Name:** `V<NNN>__<description>.sql` (two underscores). `validateMigrationNaming` rejects anything else.
-- **Every `V` has a `U`** with the same number and description, at the mirrored path under
-  `05_rollbacks/` (e.g. `03_dcl/01_grants/V003__grants.sql` → `05_rollbacks/03_dcl/01_grants/U003__grants.sql`).
-- **Rollbacks run highest version to lowest.** `U003` (revoke) must run before `U002` (drop role):
-  PostgreSQL refuses to drop a role that still holds privileges.
-- `05_rollbacks/` is deliberately **not** in `flyway.toml` `locations`: Flyway Community never runs `U` scripts.
-- The connection is never in `flyway.toml`; Flyway reads `FLYWAY_URL`, `FLYWAY_USER`, `FLYWAY_PASSWORD`
-  from the environment. The runner uses the instance administrator's credentials (ADR-012).
-- `products_app` (the login role) is created by `synkro-infra-postgres`'s bootstrap, not here.
-  `V003` grants `products_writer` to it, so **it must exist before the first migrate**.
-- **Name every constraint**: `ck_<table>_<rule>`, `fk_<table>_<target>`, `uq_<table>_<rule>`.
-  The CI checks assert on these names.
-- **A status with a conditional timestamp is two implications, never an OR of the valid cases**
-  (`stock_reservation.released_at`, `stock_alert.resolved_at`):
-  `(status <> 'OPEN' OR resolved_at IS NULL) AND (status <> 'RESOLVED' OR resolved_at IS NOT NULL)`.
-  `(OPEN AND NULL) OR (RESOLVED AND NOT NULL)` accepts the same rows but is also false for any
-  invalid status, so a bad status gets reported by the wrong constraint.
-- **A column added later to an existing table is nullable when old rows cannot be backfilled**
-  (`stock_adjustment.stock_after`, `V017`, part of the HU-PRO-09 scope: the idempotent replay of
-  `POST /products/{id}/stock-adjustments` must return the stock right after that adjustment).
-  Rows predating `V017` stay `NULL`; new rows always carry it. Its CHECK is
-  `ck_stock_adjustment_stock_after_non_negative` (`stock_after IS NULL OR stock_after >= 0`), and
-  CI asserts it with a valid control (`0`) and a rejected `-1`.
-- **A partial unique index that encodes a domain rule** (one active category per name, one OPEN
-  `stock_alert` per product) lives in the table's own migration, not in `10_indexes/`. CI tests it
-  both ways: the duplicate is rejected, and the row is accepted again once the first leaves the
-  predicate (category deactivated, alert resolved).
+Use **PowerShell or Bash** from this repository root after infrastructure has created a healthy database and the application login. Populate the ignored `.env` from `.env.example` with protected migration inputs.
 
-## Running the migrations locally
-
-Requirements: Docker, and a PostgreSQL 16 instance reachable from the Docker network `platform`.
-
-**1. A database.** Once `synkro-infra-postgres` exists, start it — it provides `synkro-db` on the
-`platform` network and creates `products_app`. Until then, a throwaway stand-in:
-
-```bash
-docker network create platform
-```
-
-```bash
-docker run -d --name synkro-db --network platform -e POSTGRES_PASSWORD=dev_admin_pw -e POSTGRES_DB=synkro postgres:16-alpine
-```
-
-```bash
-docker exec synkro-db psql -U postgres -d synkro -c "CREATE ROLE products_app LOGIN PASSWORD 'dev_app_pw';"
-```
-
-To use a PostgreSQL installed on your own machine instead, keep the `platform` network (it must
-exist) and point `FLYWAY_URL` at `jdbc:postgresql://host.docker.internal:5432/<database>`.
-
-**2. Credentials.** Copy `.env.example` to `.env` (git-ignored) and fill in the administrator user
-and password — for the stand-in above, `postgres` / `dev_admin_pw`.
-
-**3. Migrate**, from the repository root:
-
-```bash
+```text
 docker compose -f deploy/compose.yml --env-file .env run --rm products-db-migrate
+docker compose -f deploy/compose.yml --env-file .env run --rm products-db-migrate validate
 ```
 
-`--env-file .env` is required: Compose otherwise looks for `.env` next to `deploy/compose.yml`.
-Missing `FLYWAY_*` values stop the run before Flyway starts. Running it again must print
-`No migration necessary`.
+Repeat application must apply no completed migration again. Standalone disposable-database setup and reconstruction instructions are preserved in the guides below.
 
-Other Flyway commands replace `migrate` at the end (`info`, `validate`, …); the working directory
-and `flyway.toml` are already fixed in the service's entrypoint, so no path is ever typed:
+For the complete platform, start from [synkro-infra-postgres](https://github.com/code-corhuila/synkro-infra-postgres).
 
-```bash
-docker compose -f deploy/compose.yml --env-file .env run --rm products-db-migrate info
+## Configuration
+
+The committed [.env.example](.env.example) is the configuration inventory.
+Its values are examples; required inputs and defaults follow its comments and the
+owning implementation. Keep real secrets in protected local files.
+
+| Variable | Purpose |
+|---|---|
+| `FLYWAY_URL` | Connection address, origin or build-time entry point |
+| `FLYWAY_USER` | Connection or administrator identity |
+| `FLYWAY_PASSWORD` | Credential supplied locally |
+
+## Interface
+
+| Structure | Responsibility |
+|---|---|
+| category / product | Catalog |
+| stock_adjustment | Manual inventory changes |
+| stock_reservation / stock_reservation_line | Sale inventory reservation and line integrity |
+| stock_alert / idempotency_key | Alert lifecycle and safe replay |
+| product_price_history | Append-only price changes ordered per product by `sequence_no` |
+| products_writer / products_reader | Owning write grants and read access |
+
+The current source includes the additive reservation/product UNIQUE, reader-role and price-history migrations. Pending broader schema conventions are not claimed as resolved here.
+
+## Project structure
+
+```text
+01_ddl/         schema, tables, constraints and indexes
+02_dml/         approved data changes
+03_dcl/         roles and grants
+04_tcl/         transactional operations
+05_rollbacks/   explicit U scripts by migration family
+deploy/         one-shot Flyway Compose runner
+flyway.toml     schema and owning ledger selection
+docs/           migration, schema and verification procedures
 ```
 
-`clean` is disabled (`cleanDisabled = true`) on purpose. To start over, apply the rollbacks.
+## Testing
 
-## The CI rebuild check
+From this root:
 
-`.github/workflows/db-ci.yml` runs on every push and PR to `develop`, `qa` and `main`, against an
-empty `postgres:16-alpine`, using the same Flyway image as `deploy/compose.yml` (keep both tags equal).
-It proves, in order:
-
-1. **Migrate from empty** applies every `V*.sql` in the repository (the applied count is checked:
-   Flyway exits 0 with zero migrations when it cannot find its config).
-2. **Migrate again** is a no-op (`No migration necessary`).
-3. **Privileges:** `products_app` has `USAGE` on `products_schema`, and exactly `SELECT`, `INSERT`,
-   `UPDATE` (never `DELETE`) on every table in it. Those table grants come only from `V003`'s
-   `ALTER DEFAULT PRIVILEGES`, which covers tables created by the role that ran `V003`: create
-   every table through Flyway with the same administrator credentials.
-4. **Constraints reject bad rows for the right reason:** every named CHECK, unique index and
-   foreign key has an assertion (`expect_violation <SQLSTATE> <constraint> <SQL>`) that must fail
-   with that SQLSTATE *and* that constraint name, and every table has a valid-insert control.
-   A bare non-zero exit is not enough: once a column is added, every bad-row INSERT could fail
-   on that column instead. When a migration adds a constraint, add its assertion to that step;
-   when it adds a required column, update the test INSERTs (the control fails until you do).
-   Clean up child rows before parents at the end of the step.
-5. **Rollbacks** apply cleanly, highest version to lowest, and leave neither `products_schema`
-   nor `products_writer` behind.
-6. **Rebuild:** after dropping `flyway_schema_history`, migrating from scratch succeeds again.
-
-To reproduce it by hand against the stand-in database above (bash, repository root):
-
-```bash
-docker run --rm --network platform -e PGPASSWORD=dev_admin_pw postgres:16-alpine psql -h synkro-db -U postgres -d synkro -tAc "SELECT has_schema_privilege('products_app', 'products_schema', 'USAGE');"
+```text
+python3 tests/test_history_contract.py
 ```
 
-```bash
-find 05_rollbacks -name 'U*.sql' -printf '%f\t%p\n' | sort -r | cut -f2 | while read -r f; do echo "Applying $f"; docker exec -i synkro-db psql -U postgres -d synkro -v ON_ERROR_STOP=1 < "$f" || break; done
+The real-engine suites need Docker and a disposable environment
+(`PRODUCTS_TEST_DISPOSABLE=1`); see [Schema](docs/schema.md):
+
+```text
+python3 tests/test_approved_integrity.py
+python3 tests/test_price_history.py
 ```
 
-```bash
-docker exec synkro-db psql -U postgres -d synkro -c "DROP TABLE IF EXISTS flyway_schema_history;"
-```
+On Windows with the Python launcher, use `py -3` in place of `python3`. The owning database CI contains the real empty/repeat/constraint/privilege/rollback/rebuild checks. Reverse scripts are for explicitly disposable verification or a reviewed recovery, never an automatic reset of an established environment.
 
-Then migrate again (step 3 above). The first command must print `t`; the loop must apply every `U` script from the highest
-version down to `U001` (today `U017` … `U001`) without errors.
+## Branching and contributing
 
-To run the whole workflow locally, unchanged, use [`act`](https://github.com/nektos/act):
+Use a `feat/`, `fix/` or `chore/` child branch and a PR into `develop`.
+Permanent branches are `develop`, `qa` and `main`; none accepts direct commits.
+Promote through a `qa-<description>` or release child with `git cherry-pick -x`.
+`main` requires approval from `ariel5253`. Use English Conventional Commits.
+See [Git conventions](https://github.com/code-corhuila/synkro-docs/blob/main/00-governance/git-conventions.md).
 
-```bash
-act push -W .github/workflows/db-ci.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest
-```
+## Further documentation
 
-## Root composition integration (HU-INF-02)
+- [Schema](docs/schema.md).
+- [Product price history design](docs/price-history-design.md) and [TDD record](docs/evidence/price-history-tdd.json).
+- [Migrations](docs/migrations.md).
+- [Ci rebuild check](docs/ci-rebuild-check.md).
+- [Root composition](docs/root-composition.md).
+- [Domain rules](https://github.com/code-corhuila/synkro-docs/blob/main/02-domain/entities-and-rules.md), [contracts](https://github.com/code-corhuila/synkro-docs/tree/main/07-api/contracts/openapi) and [testing strategy](https://github.com/code-corhuila/synkro-docs/blob/main/11-quality/testing-strategy.md).
 
-Flyway uses `products_schema` as its only/default schema and stores its ledger in
-`products_schema.flyway_schema_history`. No historical migration was changed.
-The tooling runner mounts this repository read-only. Root infrastructure waits
-for authenticated PostgreSQL readiness before deliberately invoking it.
-
-If `public.flyway_schema_history` exists in an established environment, stop.
-Take a backup, inventory its domain/version/checksum records and obtain a reviewed
-reconciliation procedure. Do not repair, move or delete that ledger automatically.
-CI drops its disposable schema history **before** the schema-dropping rollback.
-Run `python3 tests/test_history_contract.py` for the configuration regression.
-
-## Approved reservation integrity and reader access (HU-PRO-15)
-
-V018 enforces `UNIQUE (reservation_id, product_id)` on
-`products_schema.stock_reservation_line`, named
-`uq_stock_reservation_line_reservation_product`. Its duplicate preflight aborts
-without changing rows. If it reports duplicates, stop and agree treatment with
-the Products owner/reviewer; no deletion, repair or retry is automatic.
-The backing index builds concurrently; its `.sql.conf` disables the transaction
-for that file. An invalid leftover index also stops the migration for review.
-
-V019/V020 add `products_reader`: NOLOGIN, no password, schema USAGE and SELECT on
-the seven business tables listed in [the design](docs/approved-products-integrity-design.md).
-The Flyway ledger is excluded; no login or role membership is added. Unsafe
-pre-existing attributes, memberships or effective permissions stop adoption.
-Default SELECT privileges apply to future tables created by the **effective
-migration creator**. Other creators need their own reviewed defaults; a future
-administrative table needs explicit exclusion in its creating migration.
-
-Each new migration has a mirrored `U018..U020__*.rollback.sql`. Run reversions
-highest first with `psql -f`, outside a transaction, as the same effective
-creator that applied the grants. Never change an applied V/U script.
-
-CI requires the real-engine suite:
-
-```bash
-PRODUCTS_TEST_DISPOSABLE=1 python3 tests/test_approved_integrity.py
-```
-
-It owns and removes isolated Docker resources. It covers clean installation,
-populated upgrade, unchanged re-execution, duplicate rejection/preflight,
-effective reader permissions and defaults, partial/full rollback and rebuild.
-See [verification](docs/evidence/approved-integrity-verification.json) and
-[full rebuild](docs/evidence/full-ci-rebuild.json). TD-018 remains open for its
-five excluded differences, coordinated by SergioAndres17 without a review date.
+<!-- Preserve previously published README section links. -->
+<a id="branching"></a>
+<a id="layout"></a>
+<a id="running-the-migrations-locally"></a>
+<a id="the-ci-rebuild-check"></a>
+<a id="root-composition-integration-hu-inf-02"></a>
+<a id="approved-reservation-integrity-and-reader-access-hu-pro-15"></a>
