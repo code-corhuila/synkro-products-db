@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS products_schema.idx_product_price_history_product_sequence;
